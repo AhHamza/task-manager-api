@@ -21,15 +21,28 @@ const upload = multer({
 })
 
 usersRouter.post('/users', async (req, res) => {
-    const newUser = new User(req.body)
-    sendWelcomeEmail(newUser.email, newUser.name)
-    const token = await newUser.generateAuthToken()
     try {
+        const newUser = new User(req.body)
         await newUser.save()
+
+        sendWelcomeEmail(newUser.email, newUser.name)
+
+        const token = await newUser.generateAuthToken()
         res.status(201).send({ newUser, token })
     } catch (e) {
         res.status(400).send(e)
     }
+
+    // const newUser = new User(req.body)
+    // sendWelcomeEmail(newUser.email, newUser.name)
+    // const token = await newUser.generateAuthToken()
+    // try {
+    //     await newUser.save()
+    //     res.status(201).send({ newUser, token })
+    // } catch (e) {
+    //     res.status(400).send(e)
+    // }
+
 })
 
 usersRouter.post('/users/login', async (req, res) => {

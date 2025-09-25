@@ -25,35 +25,44 @@ tasksRouter.post('/tasks', auth, async (req, res) => {
 //GET /tasks?completed =true
 //GET /tasks?limit =10&skip =20
 //GET /tasks?sortBy = createdAt:desc
-
 tasksRouter.get('/tasks', auth, async (req, res) => {
-    const match = {}
-    const sort = {}
-    if (req.query.completed) {
-        match.completed = req.query.completed === true
+    const match = {};
+    const sort = {};
+
+    // Filter by completion status
+    if (req.query.completed !== undefined) {
+        match.completed = req.query.completed === 'true'; // req.query is always string
     }
 
+    // Sorting
     if (req.query.sortBy) {
-        const parts = req.query.sortBy.split(':')
-        sort[parts[0]] = parts[1] === 'desc' ? -1 : 1
+        const parts = req.query.sortBy.split(':'); // e.g. ?sortBy=createdAt:desc
+        if (parts.length === 2) {
+            sort[parts[0]] = parts[1] === 'desc' ? -1 : 1;
+        }
     }
-    console.log(req.query.sortBy.split(':'));
+
+    // Pagination
+    const limit = req.query.limit ? parseInt(req.query.limit) : undefined;
+    const skip = req.query.skip ? parseInt(req.query.skip) : undefined;
 
     try {
         await req.user.populate({
             path: 'tasks',
             match,
             options: {
-                limit: parseInt(req.query.limit),
-                skip: parseInt(req.query.skip), //if limit = skip-> page completed
+                limit,
+                skip,
                 sort
             }
-        }) //gets the tasks that that user made
-        res.send(req.user.tasks)
+        });
+        res.send(req.user.tasks);
     } catch (e) {
-        res.status(500).send(e)
+        console.error("Get tasks error:", e); // log full error
+        res.status(500).send({ error: e.message });
     }
-})
+});
+
 
 tasksRouter.get('/tasks/:id', auth, async (req, res) => {
     const _id = req.params.id

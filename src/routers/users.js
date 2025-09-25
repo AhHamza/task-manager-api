@@ -19,31 +19,38 @@ const upload = multer({
         cb(undefined, true)
     }
 })
-
 usersRouter.post('/users', async (req, res) => {
     try {
         const newUser = new User(req.body)
         await newUser.save()
 
         sendWelcomeEmail(newUser.email, newUser.name)
-
         const token = await newUser.generateAuthToken()
+
         res.status(201).send({ newUser, token })
     } catch (e) {
-        res.status(400).send(e)
+        console.error("Signup error:", e) // log full error in server console
+
+        if (e.code === 11000) {
+            return res.status(400).send({ error: "Email already exists" })
+        }
+
+        res.status(400).send({ error: e.message }) // send error message instead of {}
     }
-
-    // const newUser = new User(req.body)
-    // sendWelcomeEmail(newUser.email, newUser.name)
-    // const token = await newUser.generateAuthToken()
-    // try {
-    //     await newUser.save()
-    //     res.status(201).send({ newUser, token })
-    // } catch (e) {
-    //     res.status(400).send(e)
-    // }
-
 })
+
+
+// const newUser = new User(req.body)
+// sendWelcomeEmail(newUser.email, newUser.name)
+// const token = await newUser.generateAuthToken()
+// try {
+//     await newUser.save()
+//     res.status(201).send({ newUser, token })
+// } catch (e) {
+//     res.status(400).send(e)
+// }
+
+
 
 usersRouter.post('/users/login', async (req, res) => {
     try {

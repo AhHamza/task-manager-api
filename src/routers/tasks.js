@@ -18,7 +18,7 @@ tasksRouter.post('/tasks', auth, async (req, res) => {
         await myTask.save()
         res.send(myTask)
     } catch (e) {
-        res.status(400).status(e)
+        res.status(400).status({ error: e.message })
     }
 })
 
@@ -75,8 +75,23 @@ tasksRouter.get('/tasks/:id', auth, async (req, res) => {
     } catch (e) {
         res.status(500).send(e)
     }
+})
 
+tasksRouter.patch('/tasks/:id/reminder', auth, async (req, res) => {
+    try {
+        const _id = req.params.id
+        console.log(_id);
+        const task = await Task.findOne({ _id, owner: req.user._id })
+        if (!task) {
+            return res.status(404).send({ error: 'note not found' })
+        }
+        task.reminder = req.body.reminder
+        await task.save()
 
+        res.status(201).send(task)
+    } catch (e) {
+        res.status(500).send({ error: 'failed to set reminder' })
+    }
 })
 
 
@@ -114,7 +129,7 @@ tasksRouter.delete('/tasks/:id', auth, async (req, res) => {
         const task = await Task.findOneAndDelete({ _id: req.params.id, owner: req.user._id })
 
         if (!task) {
-            res.status(404).send()
+            res.status(401).send()
         }
 
         res.send(task)

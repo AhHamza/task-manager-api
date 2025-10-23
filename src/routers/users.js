@@ -21,13 +21,13 @@ const upload = multer({
 })
 usersRouter.post('/users', async (req, res) => {
     try {
-        const newUser = new User(req.body)
-        await newUser.save()
+        const user = new User(req.body)
+        await user.save()
 
-        sendWelcomeEmail(newUser.email, newUser.name)
-        const token = await newUser.generateAuthToken()
+        sendWelcomeEmail(user.email, user.name)
+        const token = await user.generateAuthToken()
 
-        res.status(201).send({ newUser, token })
+        res.status(201).send({ user, token })
     } catch (e) {
         console.error("Signup error:", e) // log full error in server console
 
@@ -40,18 +40,6 @@ usersRouter.post('/users', async (req, res) => {
 })
 
 
-// const newUser = new User(req.body)
-// sendWelcomeEmail(newUser.email, newUser.name)
-// const token = await newUser.generateAuthToken()
-// try {
-//     await newUser.save()
-//     res.status(201).send({ newUser, token })
-// } catch (e) {
-//     res.status(400).send(e)
-// }
-
-
-
 usersRouter.post('/users/login', async (req, res) => {
     try {
         const user = await User.findByCredentials(req.body.email, req.body.password)
@@ -61,7 +49,6 @@ usersRouter.post('/users/login', async (req, res) => {
         res.status(400).send()
     }
 })
-
 usersRouter.post('/users/logout', auth, async (req, res) => {
     try {
         req.user.tokens = req.user.tokens.filter((token) => {
@@ -80,7 +67,7 @@ usersRouter.post('/users/logoutAll', auth, async (req, res) => {
         await req.user.save()
         res.send()
     } catch (e) {
-        res.status(500).send('All users are logged out')
+        res.status(500).send(e.message)
     }
 })
 
@@ -146,7 +133,7 @@ usersRouter.delete('/users/me', auth, async (req, res) => {
 })
 
 //save photo to db
-usersRouter.post('/users/me/avatar', auth, upload.single('upload-profile-pic'), async (req, res) => {
+usersRouter.post('/users/me/avatar', auth, upload.single('avatar'), async (req, res) => {
     const buffer = await sharp(req.file.buffer).resize({ width: 250, height: 250 }).png().toBuffer()
     req.user.avatar = buffer //couldn't be done if we saved the pic locally in the (multer fun)
     console.log(req.file);

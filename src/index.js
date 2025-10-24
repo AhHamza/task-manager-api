@@ -2,34 +2,42 @@ const app = require('./app');
 const http = require('http');
 const cron = require('node-cron');
 const Task = require('./models/task');
-const io = require('socket.io'); // just require it directly
+const sgMail = require('@sendgrid/mail');
+
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 const server = http.createServer(app);
+const port = process.env.PORT || 3000;
 
-// Create Socket.io instance
-const socketServer = io(server, { // <- directly call io()
-    cors: {
-        origin: '*', // change to your frontend URL in production
-        methods: ['GET', 'POST']
-    }
-});
+server.listen(port, () => console.log(`Server running on port ${port}`));
 
-// Handle connections
-socketServer.on('connection', (socket) => {
-    console.log('Client connected:', socket.id);
-});
-
-// Cron job
-cron.schedule('* * * * *', async () => { // every minute
+/* ------------------ CRON REMINDERS ------------------ */
+cron.schedule('* * * * *', async () => {  // runs every minute
     const now = new Date();
-    const tasks = await Task.find({ reminder: { $lte: now } });
+    const tasks = await Task.find({ reminder: { $lte: now } }).populate('owner');
+
     for (const task of tasks) {
-        socketServer.to(task.owner.toString()).emit('reminder', task);
+        if (task.owner && task.owner.email) {
+            // Send email
+            const msg = {
+                to: task.owner.email,
+                from: process.env.FROM_EMAIL,
+                subject: '⏰ Task Reminder',
+                text: `Reminder: "${task.description}" scheduled at ${task.reminder}`,
+                html: `<p>Reminder: <strong>${task.description}</strong></p>
+                       <p>Scheduled at: ${task.reminder}</p>`
+            };
+
+            try {
+                await sgMail.send(msg);
+                console.log(`Email sent for task: ${task.description} -> ${task.owner.email}`);
+            } catch (err) {
+                console.error('SendGrid error:', err);
+            }
+        }
+
+        // Clear reminder after sending
         task.reminder = null;
         await task.save();
     }
 });
-
-// Start server
-const port = process.env.PORT || 3000;
-server.listen(port, () => console.log(`Server running on port ${port}`));

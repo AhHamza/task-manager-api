@@ -1,13 +1,11 @@
-/* Simple frontend to interact with the Express API
-   Usage: configure BASE_URL if API is served on another origin.
-*/
+/* ------------------ CONFIG ------------------ */
+const BASE_URL = window.location.origin || 'http://localhost:3000';
 
-const BASE_URL = window.location.origin || 'http://localhost:3000'; // change if needed
-
-// helpers
+/* ------------------ HELPERS ------------------ */
 const $ = (sel) => document.querySelector(sel);
 const qs = (sel) => Array.from(document.querySelectorAll(sel));
 
+/* ------------------ ELEMENTS ------------------ */
 const authSection = $('#auth-section');
 const dashboard = $('#dashboard');
 const userActions = $('#user-actions');
@@ -19,34 +17,48 @@ const authMsg = $('#auth-msg');
 const tabLogin = $('#tab-login');
 const tabSignup = $('#tab-signup');
 
+const tasksListEl = $('#tasks-list');
+const newDesc = $('#new-desc');
+const createBtn = $('#create-task');
+const filterCompleted = $('#filter-completed');
+const sortBy = $('#sort-by');
+
+const reminderModal = $('#reminderModal');
+const reminderInput = $('#reminderInput');
+const saveReminder = $('#saveReminder');
+const cancelReminder = $('#cancelReminder');
+
 let isLogin = true;
 
-// store token & user in localStorage
+/* ------------------ LOCAL STORAGE ------------------ */
 const setAuth = (token, user) => {
     localStorage.setItem('tm_token', token);
     localStorage.setItem('tm_user', JSON.stringify(user));
     renderUserActions();
 };
+
 const clearAuth = () => {
     localStorage.removeItem('tm_token');
     localStorage.removeItem('tm_user');
     renderUserActions();
 };
+
 const getToken = () => localStorage.getItem('tm_token');
 const getUser = () => JSON.parse(localStorage.getItem('tm_user') || 'null');
 
-function authHeaders() {
+const authHeaders = () => {
     const token = getToken();
     return token
         ? { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }
         : { 'Content-Type': 'application/json' };
-}
+};
 
-// UI switching
+/* ------------------ UI SWITCHING ------------------ */
 function showAuth() {
     authSection.classList.remove('hidden');
     dashboard.classList.add('hidden');
 }
+
 function showDashboard() {
     authSection.classList.add('hidden');
     dashboard.classList.remove('hidden');
@@ -55,57 +67,70 @@ function showDashboard() {
 function renderUserActions() {
     const user = getUser();
     userActions.innerHTML = '';
+
     if (!user) {
         userActions.innerHTML = `<button id="show-login" class="btn">Login</button>`;
         $('#show-login').addEventListener('click', () => {
-            showAuth(); tabLogin.click();
+            showAuth();
+            tabLogin.click();
         });
         return;
     }
+
     const el = document.createElement('div');
     el.innerHTML = `
-    <span class="small muted">Hello, ${user.name}</span>
-    <button id="btn-logout" class="btn">Logout</button>
-  `;
+        <span class="small muted">Hello, ${user.name}</span>
+        <button id="btn-logout" class="btn">Logout</button>
+    `;
     userActions.appendChild(el);
+
     $('#btn-logout').addEventListener('click', async () => {
         try {
-            await fetch(`${BASE_URL}/users/logout`, {
-                method: 'POST',
-                headers: authHeaders()
-            });
-        } catch (e) { /* ignore */ }
+            await fetch(`${BASE_URL}/users/logout`, { method: 'POST', headers: authHeaders() });
+        } catch { }
         clearAuth();
         showAuth();
     });
 }
 
-// auth form fields render
+/* ------------------ AUTH FIELDS ------------------ */
 function renderAuthFields() {
     if (isLogin) {
         authFields.innerHTML = `
-      <input id="email" type="email" placeholder="Email" required />
-      <input id="password" type="password" placeholder="Password" required />
-    `;
+            <input id="email" type="email" placeholder="Email" required />
+            <input id="password" type="password" placeholder="Password" required />
+        `;
     } else {
         authFields.innerHTML = `
-      <input id="name" placeholder="Name" required />
-      <input id="email" type="email" placeholder="Email" required />
-      <input id="password" type="password" placeholder="Password" required />
-    `;
+            <input id="name" placeholder="Name" required />
+            <input id="email" type="email" placeholder="Email" required />
+            <input id="password" type="password" placeholder="Password" required />
+        `;
     }
 }
 
-tabLogin.addEventListener('click', () => { isLogin = true; tabLogin.classList.add('active'); tabSignup.classList.remove('active'); renderAuthFields(); });
-tabSignup.addEventListener('click', () => { isLogin = false; tabSignup.classList.add('active'); tabLogin.classList.remove('active'); renderAuthFields(); });
+tabLogin.addEventListener('click', () => {
+    isLogin = true;
+    tabLogin.classList.add('active');
+    tabSignup.classList.remove('active');
+    renderAuthFields();
+});
+tabSignup.addEventListener('click', () => {
+    isLogin = false;
+    tabSignup.classList.add('active');
+    tabLogin.classList.remove('active');
+    renderAuthFields();
+});
 
-// handle auth submit
+/* ------------------ AUTH FORM SUBMIT ------------------ */
 authForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     authMsg.textContent = '';
+
     if (isLogin) {
         const email = $('#email').value.trim();
         const password = $('#password').value.trim();
+
         try {
             const res = await fetch(`${BASE_URL}/users/login`, {
                 method: 'POST',
@@ -116,7 +141,7 @@ authForm.addEventListener('submit', async (e) => {
             const data = await res.json();
             setAuth(data.token, data.user);
             authMsg.textContent = 'Login success';
-            loadDashboard();
+            await loadDashboard();
         } catch (err) {
             authMsg.textContent = 'Login failed: ' + (err.message || '');
         }
@@ -124,6 +149,7 @@ authForm.addEventListener('submit', async (e) => {
         const name = $('#name').value.trim();
         const email = $('#email').value.trim();
         const password = $('#password').value.trim();
+
         try {
             const res = await fetch(`${BASE_URL}/users`, {
                 method: 'POST',
@@ -137,20 +163,14 @@ authForm.addEventListener('submit', async (e) => {
             const body = await res.json();
             setAuth(body.token, body.user);
             authMsg.textContent = 'Signup success';
-            loadDashboard();
+            await loadDashboard();
         } catch (err) {
             authMsg.textContent = 'Signup failed: ' + (err.message || '');
         }
     }
 });
 
-// Dashboard logic
-const tasksListEl = $('#tasks-list');
-const newDesc = $('#new-desc');
-const createBtn = $('#create-task');
-const filterCompleted = $('#filter-completed');
-const sortBy = $('#sort-by');
-
+/* ------------------ TASKS ------------------ */
 createBtn.addEventListener('click', createTask);
 filterCompleted.addEventListener('change', loadTasks);
 sortBy.addEventListener('change', loadTasks);
@@ -158,6 +178,7 @@ sortBy.addEventListener('change', loadTasks);
 async function createTask() {
     const description = newDesc.value.trim();
     if (!description) return;
+
     try {
         const res = await fetch(`${BASE_URL}/tasks`, {
             method: 'POST',
@@ -180,11 +201,8 @@ async function loadDashboard() {
 
 function getQueryParams() {
     const q = {};
-    const fc = filterCompleted.value;
-    if (fc !== 'all') q.completed = fc;
-    const s = sortBy.value;
-    if (s) q.sortBy = s;
-    // can add pagination: limit, skip
+    if (filterCompleted.value !== 'all') q.completed = filterCompleted.value;
+    if (sortBy.value) q.sortBy = sortBy.value;
     return new URLSearchParams(q).toString();
 }
 
@@ -204,50 +222,51 @@ async function loadTasks() {
     }
 }
 
+/* ------------------ RENDER TASKS ------------------ */
 function renderTasks(tasks) {
     if (!tasks || tasks.length === 0) {
         tasksListEl.innerHTML = '<div class="card muted">No tasks yet — add one above.</div>';
         return;
     }
+
     tasksListEl.innerHTML = '';
     tasks.forEach(task => {
         const card = document.createElement('div');
         card.className = 'task-card card';
         card.innerHTML = `
-      <div class="task-top">
-        <div>
-          <input type="checkbox" ${task.completed ? 'checked' : ''} data-id="${task._id}" class="complete-toggle" />
-          <span class="task-desc" id="desc-${task._id}">${escapeHtml(task.description)}</span>
-        </div>
-        <div class="task-actions">
-          <button class="iconbtn edit" data-id="${task._id}">Edit</button>
-          <button class="iconbtn remind" data-id="${task._id}">Reminder</button>
-          <button class="iconbtn warn delete" data-id="${task._1d}">Delete</button>
-          <button class="iconbtn danger delete" data-id="${task._id}">Del</button>
-        </div>
-      </div>
-      <div class="task-meta small muted">
-        Created: ${new Date(task.createdAt).toLocaleString()} ${task.updatedAt ? `· Updated: ${new Date(task.updatedAt).toLocaleString()}` : ''}
-      </div>
-      <div class="task-meta small reminder">${task.reminder ? 'Reminder: ' + new Date(task.reminder).toLocaleString() : ''}</div>
-    `;
+            <div class="task-top">
+                <div>
+                    <input type="checkbox" ${task.completed ? 'checked' : ''} data-id="${task._id}" class="complete-toggle" />
+                    <span class="task-desc" id="desc-${task._id}">${escapeHtml(task.description)}</span>
+                </div>
+                <div class="task-actions">
+                    <button class="iconbtn edit" data-id="${task._id}">Edit</button>
+                    <button class="iconbtn remind" data-id="${task._id}">Reminder</button>
+                    <button class="iconbtn danger delete" data-id="${task._id}">Del</button>
+                </div>
+            </div>
+            <div class="task-meta small muted">
+                Created: ${new Date(task.createdAt).toLocaleString()}
+                ${task.updatedAt ? `· Updated: ${new Date(task.updatedAt).toLocaleString()}` : ''}
+            </div>
+            <div class="task-meta small reminder">${task.reminder ? 'Reminder: ' + new Date(task.reminder).toLocaleString() : ''}</div>
+        `;
         tasksListEl.appendChild(card);
     });
 
-    // Attach handlers
     qs('.complete-toggle').forEach(cb => cb.addEventListener('click', toggleComplete));
     qs('.edit').forEach(btn => btn.addEventListener('click', startEdit));
     qs('.delete').forEach(btn => btn.addEventListener('click', deleteTask));
     qs('.remind').forEach(btn => btn.addEventListener('click', setReminderPrompt));
 }
 
-// small escape
 function escapeHtml(text) {
     const p = document.createElement('p');
     p.textContent = text;
     return p.innerHTML;
 }
 
+/* ------------------ TASK ACTIONS ------------------ */
 async function toggleComplete(e) {
     const id = e.target.dataset.id;
     const checked = e.target.checked;
@@ -281,7 +300,9 @@ function startEdit(e) {
                     headers: authHeaders(),
                     body: JSON.stringify({ description: val })
                 });
-            } catch (err) { alert('Edit failed'); }
+            } catch (err) {
+                alert('Edit failed');
+            }
         }
         await loadTasks();
     });
@@ -301,18 +322,27 @@ async function deleteTask(e) {
         alert('Delete failed: ' + err.message);
     }
 }
+
+/* ------------------ REMINDERS ------------------ */
 function setReminderPrompt(e) {
     const id = e.target.dataset.id;
-    const modal = document.getElementById('reminderModal');
-    const input = document.getElementById('reminderInput');
-    const saveBtn = document.getElementById('saveReminder');
-    const cancelBtn = document.getElementById('cancelReminder');
+    reminderModal.classList.remove('hidden');
 
-    modal.classList.remove('hidden');
+    // Remove previous listeners
+    saveReminder.replaceWith(saveReminder.cloneNode(true));
+    cancelReminder.replaceWith(cancelReminder.cloneNode(true));
 
-    saveBtn.onclick = async () => {
-        const dt = input.value.trim();
-        const payload = dt ? { reminder: new Date(dt).toISOString() } : { reminder: null };
+    const newSave = document.getElementById('saveReminder');
+    const newCancel = document.getElementById('cancelReminder');
+
+    newSave.addEventListener('click', async () => {
+        const dt = reminderInput.value.trim();
+        if (!dt) {
+            alert('Please select a valid date and time');
+            return;
+        }
+
+        const payload = { reminder: new Date(dt).toISOString() };
         try {
             await fetch(`${BASE_URL}/tasks/${id}/reminder`, {
                 method: 'PATCH',
@@ -322,55 +352,58 @@ function setReminderPrompt(e) {
             await loadTasks();
         } catch (err) {
             alert('Set reminder failed: ' + err.message);
+        } finally {
+            reminderInput.value = '';
+            reminderModal.classList.add('hidden');
         }
-        input.value = '';
-        modal.classList.add('hidden');
-    };
+    });
 
-    cancelBtn.onclick = () => {
-        input.value = '';
-        modal.classList.add('hidden');
-    };
-}
-
-const socket = io(BASE_URL);
-socket.on('reminder', task => {
-    alert(`Reminder: ${task.description}`);
-});
-
-// Register the current logged-in user
-const user = JSON.parse(localStorage.getItem('tm_user'));
-if (user) {
-    socket.emit('register', user._id);
-}
-
-// Listen for reminders
-socket.on('reminder', (task) => {
-    alert(`⏰ Reminder: ${task.description}`);
-});
-
-function connectSocket(userId) {
-    const socket = io('http://localhost:3000'); // your server URL
-    socket.emit('register', userId); // register this user for reminders
-
-    socket.on('reminder', (task) => {
-        alert(`⏰ Reminder: ${task.description}`);
+    newCancel.addEventListener('click', () => {
+        reminderInput.value = '';
+        reminderModal.classList.add('hidden');
     });
 }
 
+/* ------------------ NOTIFICATIONS ------------------ */
+async function requestNotificationPermission() {
+    if (!("Notification" in window)) return false;
+    if (Notification.permission === "granted") return true;
+    if (Notification.permission !== "denied") {
+        const permission = await Notification.requestPermission();
+        return permission === "granted";
+    }
+    return false;
+}
 
-// on load
-(function init() {
+async function checkReminders() {
+    try {
+        const res = await fetch(`${BASE_URL}/tasks?dueReminders=true`, { headers: authHeaders() });
+        if (!res.ok) return;
+        const tasks = await res.json();
+
+        tasks.forEach(task => {
+            new Notification(`⏰ Reminder`, { body: task.description });
+        });
+    } catch (err) {
+        console.error('Reminder check failed', err);
+    }
+}
+
+/* ------------------ INIT ------------------ */
+(async function init() {
     renderAuthFields();
     renderUserActions();
 
-    const user = getUser();  // reads from localStorage
-    const token = getToken(); // reads from localStorage
+    const user = getUser();
+    const token = getToken();
 
     if (user && token) {
-        loadDashboard(); // restore dashboard
-        connectSocket(user._id); // connect to Socket.io for real-time reminders
+        await loadDashboard();
 
+        const permissionGranted = await requestNotificationPermission();
+        if (!permissionGranted) alert("Enable notifications to get reminders!");
+
+        setInterval(checkReminders, 30_000);
     } else {
         showAuth();
     }
